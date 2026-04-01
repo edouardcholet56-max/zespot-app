@@ -1,39 +1,60 @@
 export async function POST(req) {
-  const { addresses } = await req.json();
+  try {
+    const { addresses } = await req.json();
 
-  // 1. Geocoding des adresses → coords
-  const coords = await Promise.all(
-    addresses.map(async (address) => {
-      const res = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await res.json();
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      throw new Error("API key manquante");
+    }
 
-      return data.results[0].geometry.location;
-    })
-  );
+    // 1. Geocode
+    const coords = await Promise.all(
+      addresses.map(async (address) => {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.GOOGLE_MAPS_API_KEY}`
+        );
 
-  // 2. Calcul point moyen (équitable)
-  const avgLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
-  const avgLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
+        const data = await res.json();
 
-  // 3. Chercher bars autour
-  const placesRes = await fetch(
-    `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${avgLat},${avgLng}&radius=1500&type=bar&key=${process.env.GOOGLE_MAPS_API_KEY}`
-  );
+        if (!data.results.length) {
+          throw new Error(`Adresse invalide: ${address}`);
+        }
 
-  const placesData = await placesRes.json();
+        return data.results[0].geometry.location;
+      })
+    );
 
-  // 4. Trier par note
-  const bestBar = placesData.results
-    .filter((b) => b.rating)
-    .sort((a, b) => b.rating - a.rating)[0];
+    // 2. moyenne
+    const avgLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
+    const avgLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
 
-  return Response.json({
-    bar: {
-      name: bestBar.name,
-      address: bestBar.vicinity,
-      rating: bestBar.rating,
-    },
-  });
+    // 3. bars
+    const placesRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${avgLat},${avgLng}&radius=1500&type=bar&key=${process.env.GOOGLE_MAPS_API_KEY}`
+    );
+
+    const placesData = await placesRes.json();
+
+    if (!placesData.results?.length) {
+      throw new Error("Aucun bar trouvé");
+    }
+
+    // 4. best
+    const bestBar = placesData.results
+      .filter((b) => b.rating)
+      .sort((a, b) => b.rating - a.rating)[0];
+
+    return Response.json({
+      bar: {
+        name: bestBar.name,
+        address: bestBar.vicinity,
+        rating: bestBar.rating,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+
+    return Response.json({
+      error: err.message,
+    });
+  }
 }
