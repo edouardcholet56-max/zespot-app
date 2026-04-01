@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 
 export default function Home() {
   const [addresses, setAddresses] = useState(["", "", ""]);
@@ -12,6 +13,10 @@ export default function Home() {
     const newAddresses = [...addresses];
     newAddresses[index] = value;
     setAddresses(newAddresses);
+  };
+
+  const addAddress = () => {
+    setAddresses([...addresses, ""]);
   };
 
   const handleSubmit = async () => {
@@ -33,10 +38,11 @@ export default function Home() {
       if (data.error) {
         setError(data.error);
       } else {
-        setResult(data.bar);
+        setResult(data);
       }
+
     } catch (err) {
-      setError("Erreur API");
+      setError("Erreur réseau");
     }
 
     setLoading(false);
@@ -45,66 +51,98 @@ export default function Home() {
   return (
     <main style={{
       minHeight: "100vh",
-      background: "#0A0A0A",
-      color: "white",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      fontFamily: "Helvetica, Arial, sans-serif"
+      background: "white",
+      color: "black",
+      fontFamily: "Helvetica, Arial, sans-serif",
+      padding: 40,
+      maxWidth: 600,
+      margin: "0 auto"
     }}>
       
-      <h1 style={{ fontSize: 48, marginBottom: 40 }}>
-        ZeSpot 🍻
+      {/* LOGO */}
+      <h1 style={{
+        fontSize: 40,
+        marginBottom: 30,
+        fontWeight: 500
+      }}>
+        ZeSpot
       </h1>
 
-      <div style={{ width: 320 }}>
+      {/* INPUTS */}
+      <div>
         {addresses.map((addr, i) => (
           <input
             key={i}
-            placeholder={`Adresse ${i + 1}`}
+            placeholder="Ex: 10 Rue de Turenne, 75004 Paris"
             value={addr}
             onChange={(e) => handleChange(i, e.target.value)}
             style={{
               width: "100%",
               marginBottom: 12,
-              padding: 12,
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#111",
-              color: "white"
+              padding: 14,
+              border: "1px solid #ddd",
+              fontSize: 14,
+              outline: "none"
             }}
           />
         ))}
       </div>
 
+      {/* ADD BUTTON */}
+      <button
+        onClick={addAddress}
+        style={{
+          marginTop: 5,
+          background: "none",
+          border: "none",
+          color: "#666",
+          cursor: "pointer",
+          marginBottom: 20
+        }}
+      >
+        + Ajouter une adresse
+      </button>
+
+      {/* SEARCH BUTTON */}
       <button
         onClick={handleSubmit}
         style={{
-          marginTop: 20,
-          padding: "12px 20px",
-          borderRadius: 8,
+          width: "100%",
+          padding: 14,
+          background: "black",
+          color: "white",
           border: "none",
-          background: "white",
-          color: "black",
           cursor: "pointer",
-          fontWeight: "bold"
+          fontSize: 14
         }}
       >
-        {loading ? "Recherche..." : "Trouver le spot 🔥"}
+        {loading ? "Recherche..." : "Rechercher"}
       </button>
 
+      {/* ERROR */}
       {error && (
-        <p style={{ color: "red", marginTop: 20 }}>
-          ❌ {error}
+        <p style={{ marginTop: 20, color: "red" }}>
+          {error}
         </p>
       )}
 
+      {/* RESULT */}
       {result && (
-        <div style={{ marginTop: 30, textAlign: "center" }}>
-          <h2>{result.name}</h2>
-          <p>{result.address}</p>
-          <p>⭐ {result.rating}</p>
+        <div style={{ marginTop: 30 }}>
+          <h2 style={{ fontSize: 18 }}>{result.bar.name}</h2>
+          <p style={{ color: "#666" }}>{result.bar.address}</p>
+          <p style={{ marginBottom: 20 }}>⭐ {result.bar.rating}</p>
+
+          {/* MAP */}
+          <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
+            <GoogleMap
+              mapContainerStyle={{ width: "100%", height: "400px" }}
+              center={result.location}
+              zoom={15}
+            >
+              <Marker position={result.location} />
+            </GoogleMap>
+          </LoadScript>
         </div>
       )}
     </main>
