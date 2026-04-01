@@ -6,6 +6,7 @@ export default function Home() {
   const [addresses, setAddresses] = useState(["", "", ""]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (index, value) => {
     const newAddresses = [...addresses];
@@ -16,6 +17,7 @@ export default function Home() {
   const handleSubmit = async () => {
     setLoading(true);
     setResult(null);
+    setError(null);
 
     try {
       const res = await fetch("/api/find-bar", {
@@ -27,10 +29,20 @@ export default function Home() {
       });
 
       const data = await res.json();
-      setResult(data.bar);
+
+      console.log("API RESPONSE:", data);
+
+      if (data.error) {
+        setError(data.error);
+      } else if (data.bar) {
+        setResult(data.bar);
+      } else {
+        setError("Réponse invalide de l'API");
+      }
+
     } catch (err) {
       console.error(err);
-      alert("Erreur API");
+      setError("Erreur réseau");
     }
 
     setLoading(false);
@@ -90,6 +102,7 @@ export default function Home() {
         {loading ? "Recherche..." : "Trouver le spot 🔥"}
       </button>
 
+      {/* RESULT */}
       {result && (
         <div style={{ marginTop: 30, textAlign: "center" }}>
           <h2>{result.name}</h2>
@@ -97,6 +110,14 @@ export default function Home() {
           <p>⭐ {result.rating}</p>
         </div>
       )}
+
+      {/* ERROR */}
+      {error && (
+        <div style={{ marginTop: 20, color: "red", textAlign: "center" }}>
+          ❌ {error}
+        </div>
+      )}
+
     </main>
   );
 }
