@@ -4,6 +4,8 @@ import { useState } from "react";
 
 export default function Home() {
   const [addresses, setAddresses] = useState(["", "", ""]);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (index, value) => {
     const newAddresses = [...addresses];
@@ -11,9 +13,27 @@ export default function Home() {
     setAddresses(newAddresses);
   };
 
-  const handleSubmit = () => {
-    console.log(addresses);
-    alert("Recherche du meilleur bar...");
+  const handleSubmit = async () => {
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/find-bar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ addresses }),
+      });
+
+      const data = await res.json();
+      setResult(data.bar);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur API");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -28,7 +48,6 @@ export default function Home() {
       fontFamily: "Helvetica, Arial, sans-serif"
     }}>
       
-      {/* LOGO */}
       <h1 style={{
         fontSize: 48,
         marginBottom: 40,
@@ -37,7 +56,6 @@ export default function Home() {
         ZeSpot 🍻
       </h1>
 
-      {/* INPUTS */}
       <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 12 }}>
         {addresses.map((addr, i) => (
           <input
@@ -56,7 +74,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* BUTTON */}
       <button
         onClick={handleSubmit}
         style={{
@@ -70,8 +87,16 @@ export default function Home() {
           fontWeight: "bold"
         }}
       >
-        Trouver le spot 🔥
+        {loading ? "Recherche..." : "Trouver le spot 🔥"}
       </button>
+
+      {result && (
+        <div style={{ marginTop: 30, textAlign: "center" }}>
+          <h2>{result.name}</h2>
+          <p>{result.address}</p>
+          <p>⭐ {result.rating}</p>
+        </div>
+      )}
     </main>
   );
 }
