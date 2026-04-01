@@ -2,74 +2,58 @@ export async function POST(req) {
   try {
     const { addresses } = await req.json();
 
-    console.log("ADDRESSES:", addresses);
-
     if (!process.env.GOOGLE_MAPS_API_KEY) {
       throw new Error("Clé API manquante");
     }
 
-    if (!addresses || addresses.length !== 3) {
-      throw new Error("3 adresses requises");
-    }
+    // 1. Geocode des adresses
+    const coords = await Promise.all(
+      addresses.map(async (address) => {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.GOOGLE_MAPS_API_KEY}`
+        );
 
-    // 1. GEOCODING
-    const coords = [];
+        const data = await res.json();
 
-    for (const address of addresses) {
-      if (!address) {
-        throw new Error("Une adresse est vide");
-      }
+        if (!data.results.length) {
+          throw new Error(`Adresse invalide: ${address}`);
+        }
 
-      const geoRes = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.GOOGLE_MAPS_API_KEY}`
-      );
+        return data.results[0].geometry.location;
+      })
+    );
 
-      const geoData = await geoRes.json();
+    // 2. centre moyen
+    const avgLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
+    const avgLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
 
-      console.log("GEOCODE:", geoData);
-
-      if (geoData.status !== "OK" || !geoData.results.length) {
-        throw new Error(`Adresse invalide: ${address}`);
-      }
-
-      coords.push(geoData.results[0].geometry.location);
-    }
-
-    // 2. POINT MOYEN
-    const avgLat =
-      coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
-
-    const avgLng =
-      coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
-
-    console.log("CENTER:", avgLat, avgLng);
-
-    // 3. PLACES API
+    // 3. chercher bars
     const placesRes = await fetch(
       `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${avgLat},${avgLng}&radius=1500&type=bar&key=${process.env.GOOGLE_MAPS_API_KEY}`
     );
 
     const placesData = await placesRes.json();
 
-    console.log("PLACES:", placesData);
-
-    if (placesData.status !== "OK" || !placesData.results.length) {
+    if (!placesData.results || placesData.results.length === 0) {
       throw new Error("Aucun bar trouvé");
     }
 
-    // 4. CHOIX DU BAR
-    const barsWithRating = placesData.results.filter((b) => b.rating);
+    // 4. algo intelligent (rating + distance)
+    const scoredBars = placesData.results.map((bar) => {
+      const rating = bar.rating || 0;
 
-    const bestBar =
-      barsWithRating.length > 0
-        ? barsWithRating.sort((a, b) => b.rating - a.rating)[0]
-        : placesData.results[0];
+      const distance =
+        Math.abs(bar.geometry.location.lat - avgLat) +
+        Math.abs(bar.geometry.location.lng - avgLng);
 
-    if (!bestBar) {
-      throw new Error("Aucun bar exploitable");
-    }
+      return {
+        ...bar,
+        score: rating * 2 - distance * 100,
+      };
+    });
 
-    // 5. RESPONSE
+    const bestBar = scoredBars.sort((a, b) => b.score - a.score)[0];
+
     return Response.json({
       bar: {
         name: bestBar.name,
@@ -79,10 +63,10 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    console.error("ERROR:", err);
+    console.error(err);
 
     return Response.json({
-      error: err.message || "Erreur serveur",
+      error: err.message,
     });
   }
 }

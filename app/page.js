@@ -30,19 +30,13 @@ export default function Home() {
 
       const data = await res.json();
 
-      console.log("API RESPONSE:", data);
-
       if (data.error) {
         setError(data.error);
-      } else if (data.bar) {
-        setResult(data.bar);
       } else {
-        setError("Réponse invalide de l'API");
+        setResult(data.bar);
       }
-
     } catch (err) {
-      console.error(err);
-      setError("Erreur réseau");
+      setError("Erreur API");
     }
 
     setLoading(false);
@@ -60,15 +54,11 @@ export default function Home() {
       fontFamily: "Helvetica, Arial, sans-serif"
     }}>
       
-      <h1 style={{
-        fontSize: 48,
-        marginBottom: 40,
-        letterSpacing: -1
-      }}>
+      <h1 style={{ fontSize: 48, marginBottom: 40 }}>
         ZeSpot 🍻
       </h1>
 
-      <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ width: 320 }}>
         {addresses.map((addr, i) => (
           <input
             key={i}
@@ -76,6 +66,8 @@ export default function Home() {
             value={addr}
             onChange={(e) => handleChange(i, e.target.value)}
             style={{
+              width: "100%",
+              marginBottom: 12,
               padding: 12,
               borderRadius: 8,
               border: "1px solid #333",
@@ -102,7 +94,12 @@ export default function Home() {
         {loading ? "Recherche..." : "Trouver le spot 🔥"}
       </button>
 
-      {/* RESULT */}
+      {error && (
+        <p style={{ color: "red", marginTop: 20 }}>
+          ❌ {error}
+        </p>
+      )}
+
       {result && (
         <div style={{ marginTop: 30, textAlign: "center" }}>
           <h2>{result.name}</h2>
@@ -110,14 +107,6 @@ export default function Home() {
           <p>⭐ {result.rating}</p>
         </div>
       )}
-
-      {/* ERROR */}
-      {error && (
-        <div style={{ marginTop: 20, color: "red", textAlign: "center" }}>
-          ❌ {error}
-        </div>
-      )}
-
     </main>
   );
 }
